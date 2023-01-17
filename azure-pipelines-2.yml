@@ -1,45 +1,40 @@
-# Node.js
-# Build a general Node.js project with npm.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
-pool:
-  name: ubuntu
-
-trigger:
-- master
-
-steps:
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    name: local
+  steps:
+  - checkout: self
+    clean: true
+    fetchTags: false
+  - task: NodeTool@0
+    displayName: Use Node version 10.14.1
+    inputs:
+      versionSpec: 10.14.1
   - task: Npm@1
+    displayName: Install Application Dependencies
     inputs:
-      command: 'custom'
-      customcommand: 'install --production'
-  - script: |
-      npm install
-      npm test
-    displayName: 'Run unit tests'
-    continueOnError: true
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results'
-    condition: succeededOrFailed()
+      workingDir: $(System.DefaultWorkingDirectory)
+      verbose: false
+  - task: Npm@1
+    displayName: Run 'build' script
     inputs:
-      testResultsFiles: $(System.DefaultWorkingDirectory)/test-report.xml
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Code Coverage'
-    condition: 'in(variables[''Agent.JobStatus''], ''Succeeded'')'
+      command: custom
+      workingDir: $(System.DefaultWorkingDirectory)
+      verbose: false
+      customCommand: run build --if-present
+  - task: Npm@1
+    displayName: Remove extraneous packages
     inputs:
-      codeCoverageTool: Cobertura
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/*coverage.xml'
-      reportDirectory: $(System.DefaultWorkingDirectory)/coverage
+      command: custom
+      workingDir: $(System.DefaultWorkingDirectory)
+      verbose: false
+      customCommand: prune --production
   - task: ArchiveFiles@2
-    displayName: 'Archive sources'
+    displayName: Archive files
     inputs:
-      rootFolderOrFile: $(Build.SourcesDirectory)
+      rootFolderOrFile: $(System.DefaultWorkingDirectory)
       includeRootFolder: false
-  - task: CopyFiles@2
-    displayName: 'Copy ARM templates'
-    inputs:
-      SourceFolder: deployment
-      Contents: '*.json'
-      TargetFolder: $(build.artifactstagingdirectory)/Templates
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: drop'
+...
