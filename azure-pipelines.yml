@@ -3,38 +3,40 @@ jobs:
   displayName: Agent job 1
   pool:
     name: local
+  trigger:
+    - master
   steps:
-  - checkout: self
-    clean: true
-    fetchTags: false
-  - task: NodeTool@0
-    displayName: Use Node version 10.14.1
-    inputs:
-      versionSpec: 10.14.1
   - task: Npm@1
-    displayName: Install Application Dependencies
     inputs:
-      workingDir: $(System.DefaultWorkingDirectory)
-      verbose: false
-  - task: Npm@1
-    displayName: Run 'build' script
+      command: 'custom'
+      customcommand: 'install --production'
+  - script: |
+      npm install
+      npm test
+    displayName: 'Run unit tests'
+    continueOnError: true
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    condition: succeededOrFailed()
     inputs:
-      command: custom
-      workingDir: $(System.DefaultWorkingDirectory)
-      verbose: false
-      customCommand: run build --if-present
-  - task: Npm@1
-    displayName: Remove extraneous packages
+      testResultsFiles: $(System.DefaultWorkingDirectory)/test-report.xml
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish Code Coverage'
+    condition: 'in(variables[''Agent.JobStatus''], ''Succeeded'')'
     inputs:
-      command: custom
-      workingDir: $(System.DefaultWorkingDirectory)
-      verbose: false
-      customCommand: prune --production
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/*coverage.xml'
+      reportDirectory: $(System.DefaultWorkingDirectory)/coverage
   - task: ArchiveFiles@2
-    displayName: Archive files
+    displayName: 'Archive sources'
     inputs:
-      rootFolderOrFile: $(System.DefaultWorkingDirectory)
+      rootFolderOrFile: $(Build.SourcesDirectory)
       includeRootFolder: false
+  - task: CopyFiles@2
+    displayName: 'Copy ARM templates'
+    inputs:
+      SourceFolder: deployment
+      Contents: '*.json'
+      TargetFolder: $(build.artifactstagingdirectory)/Templates
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: drop'
-...
