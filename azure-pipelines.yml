@@ -3,8 +3,6 @@ jobs:
   displayName: Agent job 1
   pool:
     name: local
-  trigger:
-    - master
   steps:
   - task: Npm@1
     inputs:
