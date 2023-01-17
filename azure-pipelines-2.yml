@@ -2,13 +2,14 @@
 # Build a general Node.js project with npm.
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+pool:
+  name: 'ubuntu'
+  agent: 'test-agent-azure-devops'
+  
 
 trigger:
 - master
 
-pool:
-  name: 'local'
-  
 steps:
   - task: Npm@1
     inputs:
