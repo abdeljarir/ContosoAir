@@ -1,4 +1,5 @@
 pool:
+  name: local
   vmImage: 'ubuntu-16.04'
 trigger:
   - master
