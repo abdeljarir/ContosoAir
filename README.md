@@ -1,4 +1,4 @@
-[![Build Status](https://dev.azure.com/abdelilahjarir0640/Test_01/_apis/build/status/Test_01-Azure%20Functions%20for%20Node.js-CI?branchName=master)](https://dev.azure.com/abdelilahjarir0640/Test_01/_build/latest?definitionId=3&branchName=master)
+[![Build Status](https://dev.azure.com/abdelilahjarir0640/Test_01/_apis/build/status/Test_01-Azure%20Functions%20for%20Node.js-CI?branchName=master)](https://dev.azure.com/abdelilahjarir0640/Test_01/_apis/build/status/Test_01-Azure%20Functions%20for%20Node.js-CI?branchName=master)
 
 # This project is retired, archived, and no longer supported. You are welcome to continue to use and fork the repository.
 
