@@ -1,0 +1,176 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const fs = require("fs");
+const path = require("path");
+const tl = require("azure-pipelines-task-lib/task");
+var uuidV4 = require('uuid/v4');
+function translateDirectoryPath(bashPath, directoryPath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let bashPwd = tl.tool(bashPath)
+            .arg('-c')
+            .arg('pwd');
+        let bashPwdOptions = {
+            cwd: directoryPath,
+            failOnStdErr: true,
+            errStream: process.stdout,
+            outStream: process.stdout,
+            ignoreReturnCode: false
+        };
+        let pwdOutput = '';
+        bashPwd.on('stdout', (data) => {
+            pwdOutput += data.toString();
+        });
+        yield bashPwd.exec(bashPwdOptions);
+        pwdOutput = pwdOutput.trim();
+        if (!pwdOutput) {
+            throw new Error(tl.loc('JS_TranslatePathFailed', directoryPath));
+        }
+        return `${pwdOutput}`;
+    });
+}
+/**
+ * Set value for `BASH_ENV` environment variable
+ *
+ * The pipeline task invokes bash as non-interactive shell. In this mode Bash looks only for `BASH_ENV` environment variable.
+ * The value of `BASH_ENV` is expanded and used as the name of a startup file to read before executing the script.
+ *
+ * If the environment variable `BASH_ENV` has already been defined, the function will override this variable only for the current task.
+ *
+ * @param {string} valueToSet - Value that will be set to `BASH_ENV` environment variable
+ */
+function setBashEnvVariable(valueToSet) {
+    const bashEnv = process.env["BASH_ENV"];
+    if (bashEnv) {
+        console.log(tl.loc('JS_BashEnvAlreadyDefined', bashEnv, valueToSet));
+    }
+    process.env["BASH_ENV"] = valueToSet;
+    tl.debug(`The BASH_ENV environment variable was set to ${valueToSet}`);
+}
+function run() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            tl.setResourcePath(path.join(__dirname, 'task.json'));
+            // Get inputs.
+            let input_failOnStderr = tl.getBoolInput('failOnStderr', false);
+            let input_workingDirectory = tl.getPathInput('workingDirectory', /*required*/ true, /*check*/ true);
+            let input_filePath;
+            let input_arguments;
+            let input_script;
+            let old_source_behavior;
+            let input_targetType = tl.getInput('targetType') || '';
+            const input_bashEnvValue = tl.getInput('bashEnvValue') || '';
+            if (input_bashEnvValue) {
+                setBashEnvVariable(input_bashEnvValue);
+            }
+            if (input_targetType.toUpperCase() == 'FILEPATH') {
+                old_source_behavior = !!process.env['AZP_BASHV3_OLD_SOURCE_BEHAVIOR'];
+                input_filePath = tl.getPathInput('filePath', /*required*/ true);
+                if (!tl.stats(input_filePath).isFile()) {
+                    throw new Error(tl.loc('JS_InvalidFilePath', input_filePath));
+                }
+                input_arguments = tl.getInput('arguments') || '';
+            }
+            else {
+                input_script = tl.getInput('script', false) || '';
+            }
+            // Generate the script contents.
+            console.log(tl.loc('GeneratingScript'));
+            let bashPath = tl.which('bash', true);
+            let contents;
+            if (input_targetType.toUpperCase() == 'FILEPATH') {
+                // Translate the target file path from Windows to the Linux file system.
+                let targetFilePath;
+                if (process.platform == 'win32') {
+                    targetFilePath = (yield translateDirectoryPath(bashPath, path.dirname(input_filePath))) + '/' + path.basename(input_filePath);
+                }
+                else {
+                    targetFilePath = input_filePath;
+                }
+                // Choose behavior:
+                // If they've set old_source_behavior, source the script. This is what we used to do and needs to hang around forever for back compat reasons
+                // If they've not, execute the script with bash. This is our new desired behavior.
+                // See https://github.com/Microsoft/azure-pipelines-tasks/blob/master/docs/bashnote.md
+                if (old_source_behavior) {
+                    contents = `. '${targetFilePath.replace(/'/g, "'\\''")}' ${input_arguments}`.trim();
+                }
+                else {
+                    contents = `exec bash '${targetFilePath.replace(/'/g, "'\\''")}' ${input_arguments}`.trim();
+                }
+                console.log(tl.loc('JS_FormattedCommand', contents));
+            }
+            else {
+                contents = input_script;
+                // Print one-liner scripts.
+                if (contents.indexOf('\n') < 0 && contents.toUpperCase().indexOf('##VSO[') < 0) {
+                    console.log(tl.loc('JS_ScriptContents'));
+                    console.log(contents);
+                }
+            }
+            // Write the script to disk.
+            tl.assertAgent('2.115.0');
+            let tempDirectory = tl.getVariable('agent.tempDirectory');
+            tl.checkPath(tempDirectory, `${tempDirectory} (agent.tempDirectory)`);
+            let fileName = uuidV4() + '.sh';
+            let filePath = path.join(tempDirectory, fileName);
+            yield fs.writeFileSync(filePath, contents, { encoding: 'utf8' });
+            // Translate the script file path from Windows to the Linux file system.
+            if (process.platform == 'win32') {
+                filePath = (yield translateDirectoryPath(bashPath, tempDirectory)) + '/' + fileName;
+            }
+            // Create the tool runner.
+            console.log('========================== Starting Command Output ===========================');
+            let bash = tl.tool(bashPath);
+            bash.arg(filePath);
+            let options = {
+                cwd: input_workingDirectory,
+                failOnStdErr: false,
+                errStream: process.stdout,
+                outStream: process.stdout,
+                ignoreReturnCode: true
+            };
+            process.on("SIGINT", () => {
+                tl.debug('Started cancellation of executing script');
+                bash.killChildProcess();
+            });
+            // Listen for stderr.
+            let stderrFailure = false;
+            const aggregatedStderr = [];
+            if (input_failOnStderr) {
+                bash.on('stderr', (data) => {
+                    stderrFailure = true;
+                    aggregatedStderr.push(data.toString('utf8'));
+                });
+            }
+            // Run bash.
+            let exitCode = yield bash.exec(options);
+            let result = tl.TaskResult.Succeeded;
+            // Fail on exit code.
+            if (exitCode !== 0) {
+                tl.error(tl.loc('JS_ExitCode', exitCode));
+                result = tl.TaskResult.Failed;
+            }
+            // Fail on stderr.
+            if (stderrFailure) {
+                tl.error(tl.loc('JS_Stderr'));
+                aggregatedStderr.forEach((err) => {
+                    tl.error(err);
+                });
+                result = tl.TaskResult.Failed;
+            }
+            tl.setResult(result, null, true);
+        }
+        catch (err) {
+            tl.setResult(tl.TaskResult.Failed, err.message || 'run() failed', true);
+        }
+    });
+}
+run();

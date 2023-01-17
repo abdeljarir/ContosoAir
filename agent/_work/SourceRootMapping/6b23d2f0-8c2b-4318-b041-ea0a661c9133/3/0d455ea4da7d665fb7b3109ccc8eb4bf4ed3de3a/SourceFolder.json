@@ -1,0 +1,26 @@
+﻿{
+  "build_artifactstagingdirectory": "1\\a",
+  "agent_builddirectory": "1",
+  "collectionUrl": "https://dev.azure.com/abdelilahjarir0640/",
+  "definitionName": "Test_01-Azure Functions for Node.js-CI",
+  "repositoryTrackingInfo": [
+    {
+      "identifier": "__designer_repo",
+      "repositoryType": "GitHub",
+      "repositoryUrl": "https://github.com/abdeljarir/ContosoAir",
+      "sourcesDirectory": "1\\s\\ContosoAir"
+    }
+  ],
+  "fileFormatVersion": 3,
+  "lastRunOn": "01/17/2023 15:34:15 +01:00",
+  "repositoryType": "GitHub",
+  "lastMaintenanceAttemptedOn": "",
+  "lastMaintenanceCompletedOn": "",
+  "build_sourcesdirectory": "1\\s",
+  "common_testresultsdirectory": "1\\TestResults",
+  "collectionId": "6b23d2f0-8c2b-4318-b041-ea0a661c9133",
+  "definitionId": "3",
+  "hashKey": "0d455ea4da7d665fb7b3109ccc8eb4bf4ed3de3a",
+  "repositoryUrl": "https://github.com/abdeljarir/ContosoAir",
+  "system": "build"
+}
